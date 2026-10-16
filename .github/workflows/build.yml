@@ -7,10 +7,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -18,12 +18,20 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Build with Buildozer
-        uses: digreatbrian/buildozer-action@v2
-        with:
-          buildozer-cmd: buildozer android debug
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libsqlite3-dev libreadline-dev libffi-dev libssl-dev libbz2-dev
 
-      - name: Upload APK
+      - name: Install Python Build Dependencies
+        run: |
+          pip install --upgrade "Cython<3.0" virtualenv buildozer
+
+      - name: Run Buildozer
+        run: |
+          buildozer -v android debug
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: CrudeOptionsCalc-APK

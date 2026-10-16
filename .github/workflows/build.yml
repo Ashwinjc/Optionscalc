@@ -29,12 +29,16 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libsqlite3-dev libreadline-dev libffi-dev libssl-dev libbz2-dev
 
-      - name: Install Pinned Python Tools
+      - name: Install Build Tools & Cython
         run: |
           pip install --upgrade pip setuptools wheel
-          pip install "Cython==0.29.36" virtualenv buildozer
+          pip install "Cython<3.0" virtualenv buildozer
 
       - name: Run Buildozer
+        env:
+          ANDROID_NDK_HOME: ""
+          ANDROID_NDK_ROOT: ""
+          ANDROID_NDK: ""
         run: |
           buildozer -v android debug
 

@@ -5,7 +5,7 @@ package.domain = org.crude
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
 version = 0.1
-requirements = python3,kivy==2.3.0
+requirements = python3==3.10.14,hostpython3==3.10.14,kivy==2.3.0
 orientation = portrait
 fullscreen = 0
 

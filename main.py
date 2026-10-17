@@ -4,143 +4,135 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.switch import Switch
-from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, RoundedRectangle
+from kivy.metrics import dp
 from kivy.core.window import Window
 
-# Dark trading background
-Window.clearcolor = (0.06, 0.08, 0.11, 1)
+Window.clearcolor = (0.05, 0.07, 0.10, 1)
 
-class Card(BoxLayout):
-    """A card container with rounded corners and background color."""
-    def __init__(self, bg_color=(0.12, 0.15, 0.19, 1), radius=[10], **kwargs):
+class StyledCard(BoxLayout):
+    def __init__(self, bg_color=(0.11, 0.14, 0.19, 1), radius=10, **kwargs):
         super().__init__(**kwargs)
         self.bg_color = bg_color
-        self.radius = radius
+        self.radius = [dp(radius)]
         with self.canvas.before:
             self.col = Color(*self.bg_color)
             self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=self.radius)
-        self.bind(pos=self._update_rect, size=self._update_rect)
+        self.bind(pos=self._update, size=self._update)
 
-    def _update_rect(self, *args):
+    def _update(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
 
-    def set_bg_color(self, color):
-        self.col.rgba = color
+    def set_color(self, rgba):
+        self.col.rgba = rgba
 
-class CrudeCalc(ScrollView):
+
+class CrudeCalc(BoxLayout):
     def __init__(self, **kwargs):
-        super().__init__(do_scroll_x=False, **kwargs)
+        super().__init__(orientation='vertical', padding=dp(16), spacing=dp(12), **kwargs)
+
+        # Title Header
+        header = BoxLayout(orientation='vertical', size_hint_y=0.08)
+        header.add_widget(Label(text="CRUDE OPTIONS CALCULATOR", font_size='18sp', bold=True, color=(1, 1, 1, 1)))
+        header.add_widget(Label(text="Dynamic Target & Stoploss Engine", font_size='11sp', color=(0.45, 0.55, 0.68, 1)))
+        self.add_widget(header)
+
+        # 2x3 Grid Layout (Top 6 Boxes from Blueprint)
+        grid = GridLayout(cols=2, spacing=dp(10), size_hint_y=0.42)
         
-        # Root vertical layout inside scroll view
-        root = BoxLayout(orientation='vertical', padding=[16, 20, 16, 20], spacing=14, size_hint_y=None)
-        root.bind(minimum_height=root.setter('height'))
+        self.s0 = self._create_input_tile("ENTERED UNDERLYING", "8951", grid)
+        self.p0 = self._create_input_tile("PREMIUM PRICE", "305", grid)
+        self.sl_und = self._create_input_tile("SL UNDERLYING", "8945", grid)
+        self.tgt_und = self._create_input_tile("TARGET UNDERLYING", "8994", grid)
+        self.delta = self._create_input_tile("DELTA", "-0.67", grid)
+        self.rrr2 = self._create_input_tile("DEFINED RRR RATIO", "3.0", grid)
+        self.add_widget(grid)
 
-        # Header Title
-        title_box = BoxLayout(orientation='vertical', size_hint_y=None, height=50)
-        title_box.add_widget(Label(text="CRUDE OPTIONS CALCULATOR", font_size='18sp', bold=True, color=(1, 1, 1, 1)))
-        title_box.add_widget(Label(text="Dynamic Target & Stoploss Engine", font_size='12sp', color=(0.5, 0.6, 0.7, 1)))
-        root.add_widget(title_box)
+        # Switch Strip (Below grid, toggle aligned to the right)
+        switch_bar = BoxLayout(size_hint_y=0.06, spacing=dp(8))
+        switch_bar.add_widget(Label(
+            text="Enable Defined RRR Target", 
+            font_size='13sp', 
+            bold=True, 
+            halign='left', 
+            valign='middle',
+            color=(0.85, 0.90, 0.98, 1)
+        ))
+        self.switch = Switch(active=False, size_hint_x=0.28)
+        self.switch.bind(active=self.on_switch_toggle)
+        switch_bar.add_widget(self.switch)
+        self.add_widget(switch_bar)
 
-        # --- Card 1: Input Parameters ---
-        input_card = Card(orientation='vertical', padding=[14, 14, 14, 14], spacing=10, size_hint_y=None, height=270)
+        # Live Metrics Strip (SL Shift, Target Shift, Calculated RRR)
+        self.chip_bar = StyledCard(bg_color=(0.08, 0.11, 0.15, 1), size_hint_y=0.05, padding=[dp(8), 0, dp(8), 0])
+        self.metrics_label = Label(text="SL Shift: -- | Target Shift: -- | RRR: --", font_size='12sp', color=(0.6, 0.75, 0.95, 1))
+        self.chip_bar.add_widget(self.metrics_label)
+        self.add_widget(self.chip_bar)
+
+        # Result Cards Container (Bottom Area)
+        self.results_container = BoxLayout(orientation='vertical', spacing=dp(10), size_hint_y=0.39)
+
+        # Stop Loss Premium Card (Red)
+        self.sl_card = StyledCard(bg_color=(0.84, 0.16, 0.16, 1), orientation='vertical', padding=[dp(12), dp(8), dp(12), dp(8)])
+        self.sl_card.add_widget(Label(text="STOP LOSS PREMIUM", font_size='11sp', bold=True, color=(1, 0.85, 0.85, 1), size_hint_y=0.35))
+        self.sl_val = Label(text="--", font_size='28sp', bold=True, color=(1, 1, 1, 1), size_hint_y=0.65)
+        self.sl_card.add_widget(self.sl_val)
+        self.results_container.add_widget(self.sl_card)
+
+        # Target Premium Card (Green)
+        self.tgt_card = StyledCard(bg_color=(0.10, 0.68, 0.28, 1), orientation='vertical', padding=[dp(12), dp(8), dp(12), dp(8)])
+        self.tgt_card.add_widget(Label(text="TARGET PREMIUM", font_size='11sp', bold=True, color=(0.85, 1, 0.85, 1), size_hint_y=0.35))
+        self.tgt_val = Label(text="--", font_size='28sp', bold=True, color=(1, 1, 1, 1), size_hint_y=0.65)
+        self.tgt_card.add_widget(self.tgt_val)
+        self.results_container.add_widget(self.tgt_card)
+
+        # Target @ Defined RRR Card (Dynamic Dark Navy Card)
+        self.rrr2_card = StyledCard(bg_color=(0.14, 0.18, 0.25, 1), orientation='vertical', padding=[dp(12), dp(8), dp(12), dp(8)])
+        self.rrr2_title = Label(text="TARGET @ DEFINED RRR (3.0:1)", font_size='11sp', bold=True, color=(0.7, 0.85, 1, 1), size_hint_y=0.35)
+        self.rrr2_val = Label(text="--", font_size='28sp', bold=True, color=(1, 1, 1, 1), size_hint_y=0.65)
+        self.rrr2_card.add_widget(self.rrr2_title)
+        self.rrr2_card.add_widget(self.rrr2_val)
         
-        grid = GridLayout(cols=2, spacing=[10, 8], size_hint_y=None, height=240)
-        self.s0 = self._make_input_row("Entered Underlying", "8951", grid)
-        self.p0 = self._make_input_row("Premium Price", "305", grid)
-        self.sl_und = self._make_input_row("SL Underlying", "8945", grid)
-        self.tgt_und = self._make_input_row("Target Underlying", "8994", grid)
-        self.delta = self._make_input_row("Option Delta", "-0.67", grid)
-        
-        input_card.add_widget(grid)
-        root.add_widget(input_card)
+        # Initially hidden until switch is toggled
+        self.results_container.add_widget(self.rrr2_card)
+        self.rrr2_card.opacity = 0
+        self.rrr2_card.size_hint_y = 0.001
 
-        # --- Card 2: Defined RRR Toggle Card ---
-        rrr_card = Card(orientation='vertical', padding=[14, 10, 14, 10], spacing=6, size_hint_y=None, height=95)
-        
-        switch_row = BoxLayout(size_hint_y=None, height=36)
-        switch_row.add_widget(Label(text="Enable Defined RRR", font_size='14sp', bold=True, halign='left', valign='middle'))
-        self.switch = Switch(active=False, size_hint_x=0.3)
-        self.switch.bind(active=self.toggle_rrr)
-        switch_row.add_widget(self.switch)
-        rrr_card.add_widget(switch_row)
-
-        self.rrr2_row = BoxLayout(size_hint_y=None, height=36, opacity=0)
-        self.rrr2_row.add_widget(Label(text="Target Ratio (e.g. 3.0)", font_size='13sp', color=(0.6, 0.7, 0.8, 1)))
-        self.rrr2 = TextInput(
-            text="3.0", 
-            multiline=False, 
-            font_size='14sp', 
-            size_hint_x=0.45,
-            background_color=(0.18, 0.22, 0.28, 1),
-            foreground_color=(1, 1, 1, 1),
-            cursor_color=(1, 1, 1, 1),
-            padding=[8, 6, 8, 6]
-        )
-        self.rrr2.bind(text=self.recalculate)
-        self.rrr2_row.add_widget(self.rrr2)
-        rrr_card.add_widget(self.rrr2_row)
-        root.add_widget(rrr_card)
-
-        # --- Metrics Chip Row (SL Shift | Target Shift | RRR) ---
-        self.metrics_card = Card(bg_color=(0.09, 0.12, 0.16, 1), padding=[8, 8, 8, 8], size_hint_y=None, height=44)
-        self.metrics_label = Label(text="SL: --  |  Target: --  |  RRR: --", font_size='12sp', bold=True, color=(0.6, 0.75, 0.9, 1))
-        self.metrics_card.add_widget(self.metrics_label)
-        root.add_widget(self.metrics_card)
-
-        # --- Card 3: Stop Loss Premium (Red) ---
-        self.sl_box = Card(bg_color=(0.82, 0.15, 0.15, 1), orientation='vertical', padding=[12, 10, 12, 10], size_hint_y=None, height=75)
-        self.sl_box.add_widget(Label(text="STOP LOSS PREMIUM", font_size='11sp', bold=True, color=(1, 0.85, 0.85, 1)))
-        self.sl_val = Label(text="--", font_size='26sp', bold=True, color=(1, 1, 1, 1))
-        self.sl_box.add_widget(self.sl_val)
-        root.add_widget(self.sl_box)
-
-        # --- Card 4: Target Premium (Green) ---
-        self.tgt_box = Card(bg_color=(0.10, 0.68, 0.28, 1), orientation='vertical', padding=[12, 10, 12, 10], size_hint_y=None, height=75)
-        self.tgt_box.add_widget(Label(text="TARGET PREMIUM", font_size='11sp', bold=True, color=(0.85, 1, 0.85, 1)))
-        self.tgt_val = Label(text="--", font_size='26sp', bold=True, color=(1, 1, 1, 1))
-        self.tgt_box.add_widget(self.tgt_val)
-        root.add_widget(self.tgt_box)
-
-        # --- Card 5: Defined RRR Target Card ---
-        self.rrr2_box = Card(bg_color=(0.15, 0.20, 0.28, 1), orientation='vertical', padding=[12, 10, 12, 10], size_hint_y=None, height=0, opacity=0)
-        self.rrr2_title = Label(text="TARGET @ DEFINED RRR", font_size='11sp', bold=True, color=(0.7, 0.85, 1, 1))
-        self.rrr2_val = Label(text="--", font_size='26sp', bold=True, color=(1, 1, 1, 1))
-        self.rrr2_box.add_widget(self.rrr2_title)
-        self.rrr2_box.add_widget(self.rrr2_val)
-        root.add_widget(self.rrr2_box)
-
-        self.add_widget(root)
+        self.add_widget(self.results_container)
         self.recalculate()
 
-    def _make_input_row(self, label_text, default_val, grid):
-        lbl = Label(text=label_text, font_size='13sp', halign='left', valign='middle', color=(0.8, 0.85, 0.9, 1))
-        lbl.bind(size=lbl.setter('text_size'))
-        grid.add_widget(lbl)
+    def _create_input_tile(self, label_text, default_val, parent_grid):
+        tile = StyledCard(orientation='vertical', padding=[dp(10), dp(6), dp(10), dp(6)], spacing=dp(4))
         
+        lbl = Label(text=label_text, font_size='9sp', bold=True, color=(0.60, 0.70, 0.82, 1), size_hint_y=0.35, halign='left')
+        lbl.bind(size=lbl.setter('text_size'))
+        tile.add_widget(lbl)
+
         ti = TextInput(
-            text=default_val, 
-            multiline=False, 
-            font_size='14sp',
-            background_color=(0.18, 0.22, 0.28, 1),
+            text=default_val,
+            multiline=False,
+            font_size='16sp',
+            bold=True,
+            size_hint_y=0.65,
+            background_color=(0.17, 0.22, 0.29, 1),
             foreground_color=(1, 1, 1, 1),
-            cursor_color=(1, 1, 1, 1),
-            padding=[8, 8, 8, 8]
+            cursor_color=(0.3, 0.6, 1, 1),
+            padding=[dp(8), dp(6), dp(8), dp(6)]
         )
         ti.bind(text=self.recalculate)
-        grid.add_widget(ti)
+        tile.add_widget(ti)
+        
+        parent_grid.add_widget(tile)
         return ti
 
-    def toggle_rrr(self, instance, value):
+    def on_switch_toggle(self, instance, value):
         if value:
-            self.rrr2_row.opacity = 1
-            self.rrr2_box.height = 75
-            self.rrr2_box.opacity = 1
+            self.rrr2_card.opacity = 1
+            self.rrr2_card.size_hint_y = 1
         else:
-            self.rrr2_row.opacity = 0
-            self.rrr2_box.height = 0
-            self.rrr2_box.opacity = 0
+            self.rrr2_card.opacity = 0
+            self.rrr2_card.size_hint_y = 0.001
         self.recalculate()
 
     def recalculate(self, *args):
@@ -150,19 +142,19 @@ class CrudeCalc(ScrollView):
             S_sl = float(self.sl_und.text)
             S_tgt = float(self.tgt_und.text)
             delta = float(self.delta.text)
-            
+
             prem_sl_pts = -delta * (S_sl - S0)
             prem_tgt_pts = delta * (S_tgt - S0)
-            
+
             exit_sl = P0 - prem_sl_pts if prem_sl_pts > 0 else P0 + abs(prem_sl_pts)
             exit_tgt = P0 + prem_tgt_pts
-            
+
             rrr = abs(prem_tgt_pts / prem_sl_pts) if prem_sl_pts != 0 else 0.0
-            
+
             self.metrics_label.text = f"SL Shift: {-prem_sl_pts:+.2f}  |  Tgt Shift: {prem_tgt_pts:+.2f}  |  RRR: {rrr:.2f}:1"
             self.sl_val.text = f"{exit_sl:.2f}"
             self.tgt_val.text = f"{exit_tgt:.2f}"
-            
+
             if self.switch.active:
                 rrr_val = float(self.rrr2.text)
                 risk_pts = abs(P0 - exit_sl)
@@ -172,9 +164,11 @@ class CrudeCalc(ScrollView):
         except ValueError:
             pass
 
+
 class CrudeApp(App):
     def build(self):
         return CrudeCalc()
+
 
 if __name__ == '__main__':
     CrudeApp().run()

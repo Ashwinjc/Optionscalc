@@ -15,6 +15,7 @@
       --green: #238636;
       --blue-card: #1f2937;
       --border: #30363d;
+      --btn-bg: #30363d;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 14px; display: flex; flex-direction: column; min-height: 100vh; }
@@ -23,7 +24,7 @@
     .header h1 { font-size: 1.15rem; font-weight: 800; letter-spacing: 0.5px; }
     .header p { font-size: 0.75rem; color: var(--text-muted); }
 
-    /* 2x3 Grid matching your layout */
+    /* 2x3 Grid */
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
     .tile {
       background: var(--card-bg);
@@ -47,6 +48,32 @@
     }
     .tile input::placeholder { color: #484f58; font-weight: 400; font-size: 0.95rem; }
     .tile input:focus { border-color: #388bfd; }
+
+    /* Delta input + sign button row */
+    .delta-wrap {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .delta-wrap input {
+      flex: 1;
+    }
+    .sign-btn {
+      background: var(--btn-bg);
+      color: #58a6ff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 800;
+      padding: 6px 12px;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+    }
+    .sign-btn:active {
+      background: #388bfd;
+      color: #fff;
+    }
 
     /* Switch row */
     .switch-row {
@@ -111,7 +138,6 @@
     <p>Target & Stop Loss Engine</p>
   </div>
 
-  <!-- 2x3 Empty Input Grid -->
   <div class="grid">
     <div class="tile">
       <label>Entered Price</label>
@@ -129,17 +155,22 @@
       <label>Target Underlying</label>
       <input type="number" id="tgt_und" placeholder="e.g. 8994" step="any">
     </div>
+
+    <!-- Delta Tile with +/- Toggle Button -->
     <div class="tile">
       <label>Delta</label>
-      <input type="number" id="delta" placeholder="e.g. -0.67" step="any">
+      <div class="delta-wrap">
+        <input type="number" id="delta" placeholder="e.g. 0.67" step="any">
+        <button type="button" class="sign-btn" onclick="toggleDeltaSign()">+ / −</button>
+      </div>
     </div>
+
     <div class="tile">
       <label>Defined RRR</label>
       <input type="number" id="rrr2" placeholder="e.g. 3.0" step="any">
     </div>
   </div>
 
-  <!-- Defined RRR Switch -->
   <div class="switch-row">
     <span class="switch-label">Enable Defined RRR Target</span>
     <label class="toggle">
@@ -148,12 +179,10 @@
     </label>
   </div>
 
-  <!-- Metrics Chip -->
   <div class="metrics" id="metrics_txt">
     SL Shift: -- | Target Shift: -- | RRR: --
   </div>
 
-  <!-- Result Banners -->
   <div class="results">
     <div class="banner sl">
       <div class="tag">Stop Loss Premium</div>
@@ -173,6 +202,21 @@
     const ids = ['s0', 'p0', 'sl_und', 'tgt_und', 'delta', 'rrr2'];
     ids.forEach(id => document.getElementById(id).addEventListener('input', calc));
 
+    function toggleDeltaSign() {
+      const deltaInput = document.getElementById('delta');
+      const val = deltaInput.value.trim();
+
+      if (val === '') {
+        deltaInput.value = '-';
+      } else if (val.startsWith('-')) {
+        deltaInput.value = val.substring(1);
+      } else {
+        deltaInput.value = '-' + val;
+      }
+
+      calc();
+    }
+
     function calc() {
       const s0_val = document.getElementById('s0').value;
       const p0_val = document.getElementById('p0').value;
@@ -184,7 +228,7 @@
       const rrrBanner = document.getElementById('rrr_banner');
 
       // Check if primary calculation inputs are provided
-      if (s0_val === '' || p0_val === '' || sl_val === '' || tgt_val === '' || delta_val === '') {
+      if (s0_val === '' || p0_val === '' || sl_val === '' || tgt_val === '' || delta_val === '' || delta_val === '-') {
         document.getElementById('metrics_txt').innerText = "SL Shift: -- | Target Shift: -- | RRR: --";
         document.getElementById('sl_val').innerText = "--";
         document.getElementById('tgt_val').innerText = "--";
